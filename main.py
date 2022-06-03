@@ -40,7 +40,7 @@ def get_flairs(subreddit: SUBREDDIT_TYPE):
 
 while True:
     stream = praw.reddit.models.subreddits.stream_generator(
-        lambda **kwargs: submissions_and_comments(TARGET_SUBREDDIT, **kwargs), skip_existing=True, pause_after=0)
+        lambda **kwargs: submissions_and_comments(TARGET_SUBREDDIT, **kwargs), skip_existing=True)
     try:
         print("Listening...")
         while True:
