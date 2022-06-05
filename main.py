@@ -45,26 +45,27 @@ while True:
         print("Listening...")
         while True:
             for post in stream:
+                if post is None or post.author in config.IGNORED_USERS:
+                    continue
                 print(
                     ('Comment' if isinstance(post, COMMENT_TYPE) else 'Submission') + " by \'" + str(
                         post.author) + "\' - \'" + (str(post.body) if isinstance(post, COMMENT_TYPE) else str(post.title)) + "\'")
                 try:
-                    if post.author not in config.IGNORED_USERS:
-                        # Delete cross-posts from r/repost
-                        if hasattr(post, "crosspost_parent"):
-                            original_sub_name = reddit.submission(id=post.crosspost_parent.split("_")[1]).subreddit
-                            if original_sub_name == 'repost':
-                                print("Removing spam post")
-                                post.mod.remove()
-                                post.mod.send_removal_message(message=config.REMOVAL_MESSAGE,
-                                                              type='public')
-                        # Assign random flairs to posters without one
-                        if post.author_flair_text is None:
-                            randFlair = random.choice(get_flairs(TARGET_SUBREDDIT))
-                            print("Setting flair for " + str(post.author) + ": ", randFlair['text'])
-                            TARGET_SUBREDDIT.flair.set(post.author, text=randFlair['text'],
-                                                       css_class=randFlair['css_class'],
-                                                       flair_template_id=randFlair['id'])
+                    # Delete cross-posts from r/repost
+                    if hasattr(post, "crosspost_parent"):
+                        original_sub_name = reddit.submission(id=post.crosspost_parent.split("_")[1]).subreddit
+                        if original_sub_name == 'repost':
+                            print("Removing spam post")
+                            post.mod.remove()
+                            post.mod.send_removal_message(message=config.REMOVAL_MESSAGE,
+                                                          type='public')
+                    # Assign random flairs to posters without one
+                    if post.author_flair_text is None:
+                        randFlair = random.choice(get_flairs(TARGET_SUBREDDIT))
+                        print("Setting flair for " + str(post.author) + ": ", randFlair['text'])
+                        TARGET_SUBREDDIT.flair.set(post.author, text=randFlair['text'],
+                                                   css_class=randFlair['css_class'],
+                                                   flair_template_id=randFlair['id'])
                 except Exception as e:
                     print(e, file=sys.stderr)
     except Exception as e:
