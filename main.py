@@ -19,14 +19,15 @@ TARGET_SUBREDDIT = reddit.subreddit(config.TARGET_SUB)
 SUBMISSION_TYPE = praw.reddit.models.Submission
 COMMENT_TYPE = praw.reddit.models.Comment
 SUBREDDIT_TYPE = praw.reddit.models.Subreddit
+MODMAIL_TYPE = praw.reddit.models.ModmailConversation
 
 
-# Stream of newest posts and comments
-def submissions_and_comments(subreddit: SUBREDDIT_TYPE, **kwargs):
+# Stream of newest posts, comments, and mod-mail conversations
+def get_submissions_comments_modmail(subreddit: SUBREDDIT_TYPE, **kwargs):
     new_posts = []
+    new_posts.extend(subreddit.modmail.conversations(state="new"))
     new_posts.extend(subreddit.new(**kwargs))
     new_posts.extend(subreddit.comments(**kwargs))
-    new_posts.sort(key=lambda post: post.created_utc, reverse=True)
     return new_posts
 
 
@@ -41,33 +42,53 @@ def get_flairs(subreddit: SUBREDDIT_TYPE):
 while True:
     try:
         stream = praw.reddit.models.subreddits.stream_generator(
-            lambda **kwargs: submissions_and_comments(TARGET_SUBREDDIT, **kwargs), skip_existing=True)
+            lambda **kwargs: get_submissions_comments_modmail(TARGET_SUBREDDIT, **kwargs), skip_existing=True,
+            attribute_name='id')
         print("Listening...")
         while True:
-            for post in stream:
-                if post is None or post.author in config.IGNORED_USERS:
-                    continue
-                print(
-                    ('Comment' if isinstance(post, COMMENT_TYPE) else 'Submission') + " by \'" + str(
-                        post.author) + "\' - \'" + (str(post.body) if isinstance(post, COMMENT_TYPE) else str(post.title)) + "\'")
+            for stream_item in stream:
                 try:
-                    # Delete cross-posts from r/repost
-                    if hasattr(post, "crosspost_parent"):
-                        original_sub_name = reddit.submission(id=post.crosspost_parent.split("_")[1]).subreddit
-                        if original_sub_name == 'repost':
-                            print("Removing spam post")
-                            post.mod.remove()
-                            post.mod.send_removal_message(message=config.REMOVAL_MESSAGE,
-                                                          type='public')
-                    # Assign random flairs to posters without one
-                    if post.author_flair_text is None:
-                        randFlair = random.choice(get_flairs(TARGET_SUBREDDIT))
-                        print("Setting flair for " + str(post.author) + ": ", randFlair['text'])
-                        TARGET_SUBREDDIT.flair.set(post.author, text=randFlair['text'],
-                                                   css_class=randFlair['css_class'],
-                                                   flair_template_id=randFlair['id'])
+                    if stream_item is None:
+                        continue
+                    if hasattr(stream_item, "author") and stream_item.author in config.IGNORED_USERS:
+                        continue
+
+                    # Mod mail
+                    if isinstance(stream_item, MODMAIL_TYPE):
+                        print("Responding to mod mail")
+                        mail: MODMAIL_TYPE = stream_item
+                        mail.reply(config.AUTO_MAIL_REPLY)
+
+                    # Posts
+                    if isinstance(stream_item, SUBMISSION_TYPE):
+                        # Delete cross-posts from r/repost
+                        print(
+                            ("Submission by \'" + str(
+                                stream_item.author) + "\' - \'" + str(stream_item.title)) + "\'")
+                        if hasattr(stream_item, "crosspost_parent"):
+                            original_sub_name = reddit.submission(id=stream_item.crosspost_parent.split("_")[1]).subreddit
+                            if original_sub_name == 'repost':
+                                print("Removing spam post")
+                                stream_item.mod.remove()
+                                stream_item.mod.send_removal_message(message=config.REMOVAL_MESSAGE,
+                                                                     type='public')
+                    # Comments
+                    if isinstance(stream_item, COMMENT_TYPE):
+                        print(
+                            "Comment by \'" + str(
+                                stream_item.author) + "\' - \'" + str(stream_item.body) + "\'")
+
+                    # Comments or posts
+                    if isinstance(stream_item, COMMENT_TYPE) or isinstance(stream_item, SUBMISSION_TYPE):
+                        if stream_item.author_flair_text is None:
+                            randFlair = random.choice(get_flairs(TARGET_SUBREDDIT))
+                            print("Setting flair for " + str(stream_item.author) + ": ", randFlair['text'])
+                            TARGET_SUBREDDIT.flair.set(stream_item.author, text=randFlair['text'],
+                                                       css_class=randFlair['css_class'],
+                                                       flair_template_id=randFlair['id'])
                 except Exception as e:
                     print(e, file=sys.stderr)
+
     except Exception as e:
         print(e, file=sys.stderr)
         print("Attempting to reconnect...")
