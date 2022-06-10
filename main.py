@@ -25,7 +25,7 @@ MODMAIL_TYPE = praw.reddit.models.ModmailConversation
 # Stream of newest posts, comments, and mod-mail conversations
 def get_submissions_comments_modmail(subreddit: SUBREDDIT_TYPE, **kwargs):
     new_posts = []
-    new_posts.extend(subreddit.modmail.conversations(state="new"))
+    new_posts.extend(subreddit.modmail.conversations(state="all"))
     new_posts.extend(subreddit.new(**kwargs))
     new_posts.extend(subreddit.comments(**kwargs))
     return new_posts
@@ -44,7 +44,7 @@ while True:
         stream = praw.reddit.models.subreddits.stream_generator(
             lambda **kwargs: get_submissions_comments_modmail(TARGET_SUBREDDIT, **kwargs), skip_existing=True,
             attribute_name='id')
-        print("Listening...")
+        print("Listening on subreddit: " + config.TARGET_SUB)
         while True:
             for stream_item in stream:
                 try:
