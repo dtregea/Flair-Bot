@@ -1,6 +1,7 @@
 """
 Flair-Bot
-Automatically assign flairs from your subreddit to posters without one
+Automatically assign flairs from your subreddit to posters without one,
+remove cross-posts from unwanted subreddits, and auto-respond to mod-mail
 """
 
 import sys
@@ -54,8 +55,8 @@ while True:
                         continue
 
                     # Mod mail
-                    if isinstance(stream_item, MODMAIL_TYPE):
-                        print("Responding to mod mail")
+                    if config.AUTO_MAIL_ON == 'True' and isinstance(stream_item, MODMAIL_TYPE):
+                        print("Responding to new mod mail")
                         mail: MODMAIL_TYPE = stream_item
                         mail.reply(config.AUTO_MAIL_REPLY)
 
