@@ -55,7 +55,7 @@ while True:
                         continue
 
                     # Mod mail
-                    if config.AUTO_MAIL_ON == 'True' and isinstance(stream_item, MODMAIL_TYPE):
+                    if config.AUTO_MAIL_ON and isinstance(stream_item, MODMAIL_TYPE):
                         print("Responding to new mod mail")
                         mail: MODMAIL_TYPE = stream_item
                         mail.reply(config.AUTO_MAIL_REPLY)
